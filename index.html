@@ -37,3 +37,141 @@
     </div>
     
     <div class="input-group">
+        <input type="text" id="foodInput" placeholder="どんな食事でも入力してください...">
+        <button id="micBtn" class="btn-mic" title="音声入力">🎤</button>
+    </div>
+    
+    <button id="submitBtn" class="btn-submit">AIに食事データを解析させる</button>
+
+    <div id="currentAnalysis" class="section" style="display: none;">
+        <h2>📝 AI 解析レポート</h2>
+        <div id="analysisContent"></div>
+    </div>
+
+    <div id="dailySummary" class="section">
+        <h2>📊 今日の食事ログ</h2>
+        <div id="summaryContent">記録がありません。</div>
+        <button id="clearBtn" style="margin-top:20px; background:#90A4AE; color:white; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-weight:bold;">履歴をリセット</button>
+    </div>
+</div>
+
+<script>
+    // エラーで止まらないように安全な履歴読み込み処理に変更
+    let history = [];
+    try {
+        history = JSON.parse(localStorage.getItem('nutritionHistoryAI_Stable')) || [];
+    } catch(e) {
+        history = [];
+    }
+
+    const micBtn = document.getElementById('micBtn');
+    const foodInput = document.getElementById('foodInput');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ja-JP';
+        recognition.interimResults = false;
+        micBtn.addEventListener('click', () => { recognition.start(); micBtn.classList.add('recording'); });
+        recognition.onresult = (event) => { foodInput.value = event.results[0][0].transcript; micBtn.classList.remove('recording'); };
+        recognition.onspeechend = () => { recognition.stop(); micBtn.classList.remove('recording'); };
+        recognition.onerror = () => { micBtn.classList.remove('recording'); alert('音声認識エラー'); };
+    } else {
+        micBtn.style.display = 'none';
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    const mealType = document.getElementById('mealType');
+    const currentAnalysis = document.getElementById('currentAnalysis');
+    const analysisContent = document.getElementById('analysisContent');
+    const summaryContent = document.getElementById('summaryContent');
+    const clearBtn = document.getElementById('clearBtn');
+
+    updateSummary();
+
+    submitBtn.addEventListener('click', async () => {
+        const input = foodInput.value.trim();
+        
+        // 入力が空の場合は警告を出すようにしました
+        if (!input) {
+            alert("食事の内容を入力してください！");
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = "⏳ クラウドAIが推論中...";
+        currentAnalysis.style.display = 'block';
+        analysisContent.innerHTML = `<p style="text-align:center; color:#666;">管理栄養士AIが『${input}』の成分を分析しています...</p>`;
+
+        try {
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ foodText: input })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                // エラー内容がオブジェクト（塊）でも文字でも綺麗に表示するように修正
+                let errMsg = data.error;
+                if (typeof errMsg === 'object' && errMsg !== null) {
+                    errMsg = errMsg.message || JSON.stringify(errMsg);
+                }
+                analysisContent.innerHTML = `<p style="color:red; font-weight:bold;">通信エラー: ${errMsg}</p>`;
+                return;
+            }
+
+            if (response.ok) {
+                analysisContent.innerHTML = `<p><strong>📝 入力:</strong> ${input}</p>` + data.html;
+
+                history.push({
+                    id: Date.now(),
+                    time: new Date().toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}),
+                    type: mealType.value,
+                    text: input
+                });
+                localStorage.setItem('nutritionHistoryAI_Stable', JSON.stringify(history));
+                
+                foodInput.value = '';
+                updateSummary();
+            }
+        } catch (error) {
+            analysisContent.innerHTML = `<p style="color:red; font-weight:bold;">ネットワーク通信に失敗しました。もう一度お試しください。</p>`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "AIに食事データを解析させる";
+        }
+    });
+
+    clearBtn.addEventListener('click', () => {
+        if(confirm("履歴をリセットしますか？")) {
+            history = [];
+            localStorage.removeItem('nutritionHistoryAI_Stable');
+            currentAnalysis.style.display = 'none';
+            updateSummary();
+        }
+    });
+
+    function updateSummary() {
+        if (history.length === 0) {
+            summaryContent.innerHTML = "記録がありません。";
+            return;
+        }
+
+        let summaryHTML = "";
+        history.forEach(item => {
+            summaryHTML += `
+                <div style="border-bottom: 1px solid #E0E0E0; padding: 12px 0;">
+                    <span style="background:var(--primary); color:white; padding:4px 8px; border-radius:4px; font-size:0.85rem; font-weight:bold;">${item.type}</span> 
+                    <span style="color:#78909C; font-size:0.85rem; margin:0 10px;">${item.time}</span>
+                    <strong style="color:#263238;">${item.text}</strong>
+                </div>`;
+        });
+        
+        summaryContent.innerHTML = summaryHTML;
+    }
+</script>
+
+</body>
+</html>
