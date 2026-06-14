@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 栄養アドバイザー v6 (Professional Complete)</title>
+    <title>臨床栄養学 AIアドバイザー (Gemini連携版)</title>
     <style>
         :root {
             --primary: #1565C0;
@@ -91,6 +91,7 @@
             transition: background-color 0.2s;
         }
         .btn-submit:hover { background-color: var(--secondary); }
+        .btn-submit:disabled { background-color: #90A4AE; cursor: not-allowed; }
         .section {
             background: #FFFFFF;
             border: 1px solid #ECEFF1;
@@ -109,47 +110,12 @@
             align-items: center;
             gap: 8px;
         }
-        .badge {
-            display: inline-block;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            margin: 2px 6px 2px 0;
-        }
-        .badge.carbs { background: #FFF3E0; color: #E65100; }
-        .badge.protein { background: #FFEBEE; color: #C62828; }
-        .badge.fat { background: #EFEBE9; color: #4E342E; }
-        .badge.vitamin { background: #E8F5E9; color: #1B5E20; }
-        .badge.fiber { background: #F3E5F5; color: #4A148C; }
-        
-        .nutrition-card {
-            background: #F8FDFF;
-            border-left: 4px solid var(--primary);
-            padding: 12px 15px;
-            margin-bottom: 12px;
-            border-radius: 0 6px 6px 0;
-        }
-        .nutrition-card h3 { margin: 0 0 5px 0; font-size: 1.05rem; color: #333; }
-        .nutrition-card p { margin: 4px 0; font-size: 0.95rem; color: #555; }
-        
-        .advice-box {
-            background: #FFF8E1;
-            border: 1px solid #FFE082;
-            padding: 15px;
-            margin-top: 20px;
-            font-size: 0.95rem;
-            border-radius: 6px;
-        }
-        .advice-box h3 { margin: 0 0 10px 0; color: #F57F17; font-size: 1.1rem; }
-        .advice-box ul { margin: 0; padding-left: 20px; }
-        .advice-box li { margin-bottom: 8px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🔬 臨床栄養学 AIアドバイザー (完全版)</h1>
+    <h1>🔬 臨床栄養学 AIアドバイザー (Gemini連携)</h1>
     
     <div class="input-group">
         <select id="mealType">
@@ -161,54 +127,29 @@
     </div>
     
     <div class="input-group">
-        <input type="text" id="foodInput" placeholder="例：スパゲッティ、鶏肉、トマト、ほうれん草...">
+        <input type="text" id="foodInput" placeholder="どんな食事でも入力してください...">
         <button id="micBtn" class="btn-mic" title="音声入力">🎤</button>
     </div>
     
-    <button id="submitBtn" class="btn-submit">食事データを解析する</button>
+    <button id="submitBtn" class="btn-submit">AIに食事データを解析させる</button>
 
     <div id="currentAnalysis" class="section" style="display: none;">
-        <h2>📝 食材の栄養プロファイル</h2>
+        <h2>📝 AI 解析レポート</h2>
         <div id="analysisContent"></div>
     </div>
 
     <div id="dailySummary" class="section">
-        <h2>📊 1日の代謝・栄養サマリー</h2>
+        <h2>📊 今日の食事ログ</h2>
         <div id="summaryContent">記録がありません。</div>
         <button id="clearBtn" style="margin-top:20px; background:#90A4AE; color:white; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-weight:bold;">履歴をリセット</button>
     </div>
 </div>
 
 <script>
-    // v4の正確な検知力とv5のデータベースを融合
-    const foodDB = [
-        // --- v4のコア・詳細データ ---
-        { match: /スパゲッティ|パスタ|マカロニ|ペンネ/, name: "パスタ類", tags: ["carbs"], micros: "モリブデン、セレン", advice: "デュラムセモリナ粉を使用するパスタは、白米やうどんと比較してGI値（食後血糖値の上昇度）が低く、インスリンの過剰分泌を抑えつつ持続的なエネルギーを供給します。" },
-        { match: /鶏肉|チキン|とり肉|ささみ|唐揚げ/, name: "鶏肉", tags: ["protein", "fat"], micros: "ナイアシン、ビタミンB6、パントテン酸", advice: "アミノ酸スコア100の極めて優秀なタンパク源です。豊富に含まれるナイアシン（ビタミンB3）は、糖質や脂質をATP（エネルギー）に変換する代謝経路において不可欠な補酵素として働きます。" },
-        { match: /トマト|とまと|ミニトマト/, name: "トマト", tags: ["vitamin"], micros: "リコピン、ビタミンC、カリウム", advice: "強力な抗酸化作用を持つカロテノイド「リコピン」を含有します。リコピンは脂溶性であるため、脂質と共に加熱調理することで、腸管からの吸収率が飛躍的に向上します。" },
-        { match: /ほうれん草|ホウレンソウ|ほうれんそう/, name: "ほうれん草", tags: ["vitamin", "fiber"], micros: "非ヘム鉄、βカロテン、葉酸、ビタミンK", advice: "造血に必須の鉄分と葉酸が豊富です。植物由来の「非ヘム鉄」は吸収率が数%と低いですが、ビタミンCや動物性タンパク質と同時摂取することで、吸収率が大幅に改善されるシナジー効果があります。" },
-        { match: /しめじ|きのこ|エノキ|えのき|しいたけ|椎茸|マイタケ/, name: "きのこ類", tags: ["fiber", "vitamin"], micros: "ビタミンD、不溶性食物繊維、カリウム", advice: "極低カロリーでありながら、不溶性食物繊維（βグルカン等）が豊富です。腸の蠕動運動を促し、食事による血糖値の急上昇（スパイク）を緩慢にする物理的バリアとして機能します。" },
-        { match: /ネギ|ねぎ|長葱|玉ねぎ|タマネギ/, name: "ネギ類", tags: ["vitamin"], micros: "硫化アリル（アリシン）、ケルセチン", advice: "特有の香気成分である硫化アリルが、ビタミンB1と結合して「アリチアミン」となり、体内への吸収率と血中滞留時間を延ばします。これにより持続的な疲労回復・糖質代謝の促進が見込めます。" },
-        { match: /卵|たまご|玉子|目玉焼き|ゆで卵/, name: "鶏卵", tags: ["protein", "fat", "vitamin"], micros: "必須アミノ酸全般、コリン、ビタミンD", advice: "ビタミンCと食物繊維以外のほぼ全ての栄養素を網羅する完全栄養食です。卵黄に含まれるコリンは、細胞膜の構築や脂質代謝に関与し、脳の神経伝達物質の材料にもなります。" },
-        { match: /塩コショウ|塩こしょう/, name: "調味料（塩コショウ）", tags: [], micros: "ナトリウム、ピペリン", advice: "黒コショウに含まれる辛味成分「ピペリン」は、消化酵素の分泌を促し、他の栄養素（特に微量ミネラルやビタミン）の生体利用効率を高める作用があります。" },
-        
-        // --- v5の拡張データ（栄養学メソッド） ---
-        { match: /ご飯|白米|ライス/, name: "白米", tags: ["carbs"], micros: "モリブデン、銅", advice: "素早くエネルギー（ATP）に変換される良質な脳と体のガソリンです。ただし精白されているためビタミンB1が不足しがち。豚肉や大豆製品と合わせるのが基本です。" },
-        { match: /玄米|雑穀/, name: "玄米・雑穀", tags: ["carbs", "fiber", "vitamin"], micros: "ビタミンB1、マグネシウム、フィチン酸", advice: "白米の数倍のビタミン・ミネラル・食物繊維を含む「パーフェクト穀物」。糖の吸収が極めて穏やか（低GI）で、インスリンの急な分泌を防ぎます。" },
-        { match: /豚肉|豚|ポーク|チャーシュー/, name: "豚肉", tags: ["protein", "fat", "vitamin"], micros: "ビタミンB1、ナイアシン", advice: "「疲労回復ビタミン」であるビタミンB1が全食品トップクラス。糖質をエネルギーに変える代謝を強力にアシストします。" },
-        { match: /牛肉|牛|ビーフ|ステーキ|牛丼/, name: "牛肉", tags: ["protein", "fat"], micros: "ヘム鉄、亜鉛、ビタミンB12", advice: "吸収率の高い「ヘム鉄」と、細胞分裂・ホルモン生成に関わる「亜鉛」の宝庫。カロリー過多になりやすいため薬味で消化代謝を助けると効果的です。" },
-        { match: /鮭|サケ|サーモン/, name: "鮭（サーモン）", tags: ["protein", "fat", "vitamin"], micros: "アスタキサンチン、EPA/DHA", advice: "強力な抗酸化物質「アスタキサンチン」を含み、細胞の老化や酸化ストレスを防ぎます。" },
-        { match: /納豆/, name: "納豆", tags: ["protein", "fiber", "vitamin"], micros: "ナットウキナーゼ、ビタミンK2", advice: "ナットウキナーゼが血栓を溶かし、ビタミンK2がカルシウムを骨に定着させる役割を担います。" },
-        { match: /豆腐|豆乳|大豆/, name: "大豆製品", tags: ["protein"], micros: "大豆イソフラボン、マグネシウム", advice: "植物性タンパク質の王様。大豆レシチンが血管内のコレステロールを排出させます。" },
-        { match: /わかめ|ワカメ|昆布|海苔|めかぶ/, name: "海藻類", tags: ["fiber"], micros: "ヨウ素、水溶性食物繊維", advice: "水溶性食物繊維が糖質や脂質の吸収をブロックし、コレステロールを排出。甲状腺ホルモンの材料となるヨウ素も豊富です。" },
-        { match: /ラーメン|らーめん|中華そば/, name: "ラーメン", tags: ["carbs", "fat"], micros: "ナトリウム、糖質", advice: "エネルギー密度が非常に高い食事です。塩分（ナトリウム）過多になりやすいため、カリウムを含む野菜をトッピングして塩分排出を促すのが鉄則です。" },
-        { match: /プロテイン/, name: "プロテイン", tags: ["protein"], micros: "BCAA（バリン・ロイシン・イソロイシン）", advice: "消化負担なく速やかに血中アミノ酸濃度を高めます。筋トレ後のリカバリーに最適です。" }
-    ];
-
     const micBtn = document.getElementById('micBtn');
     const foodInput = document.getElementById('foodInput');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.lang = 'ja-JP';
@@ -228,101 +169,55 @@
     const summaryContent = document.getElementById('summaryContent');
     const clearBtn = document.getElementById('clearBtn');
 
-    let history = JSON.parse(localStorage.getItem('nutritionHistoryV6')) || [];
+    let history = JSON.parse(localStorage.getItem('nutritionHistoryAI')) || [];
     updateSummary();
 
-    submitBtn.addEventListener('click', () => {
+    submitBtn.addEventListener('click', async () => {
         const input = foodInput.value.trim();
         if (!input) return;
 
-        let analysisHTML = `<p><strong>解析対象:</strong> ${input}</p>`;
-        const detectedTags = new Set();
-        const detectedItems = [];
-
-        foodDB.forEach(item => {
-            if (item.match.test(input)) {
-                detectedItems.push(item.name);
-                item.tags.forEach(t => detectedTags.add(t));
-
-                let tagBadges = '';
-                if(item.tags.includes('carbs')) tagBadges += '<span class="badge carbs">炭水化物</span>';
-                if(item.tags.includes('protein')) tagBadges += '<span class="badge protein">タンパク質</span>';
-                if(item.tags.includes('fat')) tagBadges += '<span class="badge fat">脂質</span>';
-                if(item.tags.includes('vitamin')) tagBadges += '<span class="badge vitamin">ビタミン/ミネラル</span>';
-                if(item.tags.includes('fiber')) tagBadges += '<span class="badge fiber">食物繊維</span>';
-
-                analysisHTML += `
-                    <div class="nutrition-card">
-                        <h3>${item.name} ${tagBadges}</h3>
-                        <p style="font-size:0.85rem; font-weight:bold;">主要微量栄養素: ${item.micros}</p>
-                        <p>${item.advice}</p>
-                    </div>`;
-            }
-        });
-
-        if (detectedItems.length === 0) {
-            analysisHTML += `<p style="color:#e74c3c;">データベースに合致する特定の食材を抽出できませんでしたが、カロリーログとして記録しました。</p>`;
-        }
-
-        // v4の鋭い専門的シナジー評価を完全復元・強化
-        let adviceList = [];
-        
-        // 1. ほうれん草 × トマト/タンパク質の鉄分吸収シナジー
-        if (detectedItems.includes("ほうれん草") && (detectedItems.includes("トマト") || detectedTags.has('protein'))) {
-            adviceList.push("<b>✨ 優れた食べ合わせ（鉄分の吸収）:</b> ほうれん草の非ヘム鉄と、トマトのビタミンC・鶏肉などのタンパク質が組み合わさることで、鉄分の吸収効率が最大化されています。貧血予防と造血に理想的な構成です。");
-        }
-        
-        // 2. パスタ × 食物繊維（きのこ）のGI値コントロール
-        if (detectedItems.includes("パスタ類") && detectedTags.has('fiber')) {
-            adviceList.push("<b>✨ 血糖値コントロール（GI値）:</b> パスタ単体では血糖値が上がりやすいですが、しめじ（きのこ類）やほうれん草などの食物繊維を同時に摂取することで、糖の吸収が穏やかになりインスリンの急激な分泌を防いでいます。");
-        }
-
-        // 3. 豚肉 × ネギのアリチアミン・シナジー (v5追加要素との連携)
-        if (detectedItems.includes("豚肉") && detectedItems.includes("ネギ類")) {
-            adviceList.push("<b>✨ 代謝爆発シナジー（アリチアミン）:</b> 豚肉の豊富なビタミンB1とネギのアリシンが結合し、体内吸収率と血中滞留時間が飛躍的に向上しています。疲労回復と糖質代謝において最強の組み合わせです。");
-        }
-
-        // 4. トマト × 脂質の抗酸化シナジー
-        if (detectedItems.includes("トマト") && detectedTags.has('fat')) {
-            adviceList.push("<b>✨ 抗酸化シナジー（リコピン吸収）:</b> トマトの強力な抗酸化成分リコピンは脂溶性です。脂質を含む食材と一緒に食べることで、細胞の老化を防ぐ効果が最大化されます。");
-        }
-
-        // 不足の警告 (v4の臨床的トーン)
-        if (!detectedTags.has('protein')) {
-            adviceList.push("<b>⚠️ タンパク質の欠如:</b> 筋タンパク質合成（MPS）や免疫抗体の材料となるアミノ酸が不足しています。細胞のターンオーバーを促すため、次回の食事で必須アミノ酸を含む食品を補填してください。");
-        }
-        if (detectedTags.has('carbs') && !detectedTags.has('vitamin')) {
-            adviceList.push("<b>⚠️ 補酵素の枯渇:</b> 糖質をエネルギー（ATP）に変換するためのビタミン群が不足しています。このままでは代謝が滞り、疲労感や体脂肪蓄積に繋がります。");
-        }
-
-        if (adviceList.length > 0) {
-            analysisHTML += `
-                <div class="advice-box">
-                    <h3>👨‍⚕️ 管理栄養士の総合所見</h3>
-                    <ul>${adviceList.map(a => `<li>${a}</li>`).join('')}</ul>
-                </div>`;
-        }
-
-        analysisContent.innerHTML = analysisHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "⏳ クラウドAIが推論中...";
         currentAnalysis.style.display = 'block';
+        analysisContent.innerHTML = `<p style="text-align:center; color:#666;">管理栄養士AIが『${input}』の成分を分析しています...</p>`;
 
-        history.push({
-            id: Date.now(),
-            time: new Date().toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}),
-            type: mealType.value,
-            text: input,
-            tags: Array.from(detectedTags)
-        });
-        localStorage.setItem('nutritionHistoryV6', JSON.stringify(history));
-        
-        foodInput.value = '';
-        updateSummary();
+        try {
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ foodText: input })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                analysisContent.innerHTML = `<p><strong>📝 入力:</strong> ${input}</p>` + data.html;
+
+                history.push({
+                    id: Date.now(),
+                    time: new Date().toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'}),
+                    type: mealType.value,
+                    text: input
+                });
+                localStorage.setItem('nutritionHistoryAI', JSON.stringify(history));
+                
+                foodInput.value = '';
+                updateSummary();
+            } else {
+                analysisContent.innerHTML = `<p style="color:red; font-weight:bold;">エラー: ${data.error || '不明なエラー'}</p><p style="font-size:0.9em; color:#666;">※環境変数(GEMINI_API_KEY)や、api/analyze.js の配置を見直してください。</p>`;
+            }
+        } catch (error) {
+            analysisContent.innerHTML = `<p style="color:red; font-weight:bold;">通信エラーが発生しました。</p>`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "AIに食事データを解析させる";
+        }
     });
 
     clearBtn.addEventListener('click', () => {
-        if(confirm("ローカルストレージのデータをリセットしますか？")) {
+        if(confirm("履歴をリセットしますか？")) {
             history = [];
-            localStorage.removeItem('nutritionHistoryV6');
+            localStorage.removeItem('nutritionHistoryAI');
             currentAnalysis.style.display = 'none';
             updateSummary();
         }
@@ -335,14 +230,7 @@
         }
 
         let summaryHTML = "";
-        let cCount = 0, pCount = 0, vCount = 0, fCount = 0;
-
         history.forEach(item => {
-            if(item.tags.includes('carbs')) cCount++;
-            if(item.tags.includes('protein')) pCount++;
-            if(item.tags.includes('vitamin')) vCount++;
-            if(item.tags.includes('fiber')) fCount++;
-
             summaryHTML += `
                 <div style="border-bottom: 1px solid #E0E0E0; padding: 12px 0;">
                     <span style="background:var(--primary); color:white; padding:4px 8px; border-radius:4px; font-size:0.85rem; font-weight:bold;">${item.type}</span> 
@@ -350,21 +238,8 @@
                     <strong style="color:#263238;">${item.text}</strong>
                 </div>`;
         });
-
-        let dailyAdvice = `<div class="advice-box" style="margin-top:20px; background:#F1F8E9; border-color:#AED581;">
-            <h3 style="color:#33691E;">🧭 本日の代謝・栄養サマリー</h3>
-            <ul style="color:#33691E;">`;
         
-        if (pCount > 0 && vCount > 0 && cCount > 0 && fCount > 0) {
-            dailyAdvice += "<li><b>PFC・微量栄養素コンプリート:</b> 主要なマクロ栄養素（糖質・タンパク質）と、代謝を司るミクロ栄養素（ビタミン・ミネラル）、腸内環境を整える食物繊維が網羅されています。理想的な栄養動態です。</li>";
-        } else {
-            if (pCount === 0) dailyAdvice += "<li><b>異化（カタボリック）の懸念:</b> タンパク質が記録されていません。筋肉量の維持および基礎代謝低下を防ぐため、早急なタンパク質補給が必要です。</li>";
-            if (vCount === 0) dailyAdvice += "<li><b>代謝補酵素の枯渇:</b> ビタミン・ミネラルが不足しています。摂取したエネルギーが効率よくATPに変換されず、脂肪として蓄積されやすい状態です。</li>";
-            if (fCount === 0) dailyAdvice += "<li><b>腸内フローラの改善:</b> 食物繊維が不足傾向です。次回の食事では、きのこ類、海藻類、または全粒穀物を取り入れてください。</li>";
-        }
-        
-        dailyAdvice += `</ul></div>`;
-        summaryContent.innerHTML = summaryHTML + dailyAdvice;
+        summaryContent.innerHTML = summaryHTML;
     }
 </script>
 
