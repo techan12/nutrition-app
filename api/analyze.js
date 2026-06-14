@@ -1,72 +1,52 @@
 export default async function handler(req, res) {
-    // POSTリクエスト以外は弾く
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const apiKey = process.env.GEMINI_API_KEY;
-    const { foodText } = req.body;
+    const { foodText, portionSize, historyContext, imageData, isSummary } = req.body;
 
-    if (!foodText) {
-        return res.status(400).json({ error: '入力がありません' });
+    // AIへの指示（プロンプト）の構築
+    let systemPrompt = `あなたは臨床栄養学に基づいたプロの管理栄養士です。
+    ユーザーの食事を分析し、HTML形式でアドバイスを返してください。
+    
+    【ルール】
+    1. HTMLタグのみを出力し、挨拶や \`\`\`html 等の記号は含めないでください。
+    2. 画像がある場合は、画像内の料理名と分量を推測して解析してください。
+    3. ポーションサイズ（${portionSize || 'ふつう'}）を考慮してカロリーを推定してください。
+    4. 過去の履歴（${historyContext || 'なし'}）を読み取り、1日のトータルバランスを踏まえたアドバイスをしてください。
+    5. 過剰摂取気味な場合は、ユーモアを交えて「半分残す」「◯km走る」などの具体的な回避策を提案してください。`;
+
+    if (isSummary) {
+        systemPrompt += `\n今回は「1日の総評」です。今日の全履歴を振り返り、100点満点でのスコア、良かった点、改善点を熱く語ってください。`;
     }
 
-    const prompt = `あなたは最新の臨床栄養学と生化学に精通したプロフェッショナルな管理栄養士です。
-ユーザーが食べた以下の食事内容を分析し、HTML形式で出力してください。
+    // Gemini APIに送るコンテンツの構築
+    const contents = [{
+        parts: [{ text: `${systemPrompt}\n入力内容: ${foodText || '料理を見て分析してください'}` }]
+    }];
 
-食事内容: ${foodText}
-
-出力のルール:
-1. 以下のHTMLタグのみを出力し、マークダウンの \`\`\`html などの記号や余計な挨拶は絶対に含めないでください。
-2. 具体的なマクロ栄養素・ミクロ栄養素を推測して挙げてください。
-3. 食べ合わせの生化学的シナジーや、GI値コントロール、不足している栄養素のアドバイスをプロ視点で行ってください。
-
-出力テンプレート:
-<div class="nutrition-card" style="background:#F8FDFF; border-left:4px solid #1565C0; padding:15px; border-radius:4px; margin-bottom:15px;">
-    <h3 style="margin-top:0; color:#0D47A1;">🍽️ AI 栄養解析結果</h3>
-    <p style="color:#333;"><strong>推定される主要栄養素:</strong> （ここに列挙）</p>
-</div>
-<div class="advice-box" style="background:#FFF8E1; border:1px solid #FFE082; padding:15px; border-radius:4px;">
-    <h3 style="margin-top:0; color:#F57F17;">👨‍⚕️ 管理栄養士の総合所見</h3>
-    <ul style="color:#444; padding-left:20px; margin-bottom:0;">
-        <li style="margin-bottom:8px;">（専門的アドバイス1）</li>
-        <li style="margin-bottom:8px;">（専門的アドバイス2）</li>
-        <li>（次に追加すべき食材の提案）</li>
-    </ul>
-</div>`;
+    // 画像データがある場合は追加
+    if (imageData) {
+        contents[0].parts.push({
+            inline_data: {
+                mime_type: "image/jpeg",
+                data: imageData // Base64文字列
+            }
+        });
+    }
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
+            body: JSON.stringify({ contents })
         });
 
         const data = await response.json();
+        let html = data.candidates[0].content.parts[0].text;
+        html = html.replace(/```html/g, '').replace(/```/g, '');
 
-        // 🌟 強化ポイント1：Gemini APIからエラーが返ってきた場合のキャッチ
-        if (!response.ok || data.error) {
-            console.error("Gemini API Error:", data.error);
-            // 429エラー（リクエスト過多）の場合は分かりやすいメッセージにする
-            if (data.error && data.error.code === 429) {
-                return res.status(429).json({ error: 'AIの解析上限（1分間15回）に達しました。1分ほど待ってから再度お試しください。' });
-            }
-            return res.status(500).json({ error: `AI通信エラー: ${data.error?.message || 'APIの呼び出しで問題が発生しました'}` });
-        }
-
-        // 🌟 強化ポイント2：AIが回答の生成を拒否した場合（安全性フィルターなど）
-        if (!data.candidates || data.candidates.length === 0) {
-            return res.status(500).json({ error: 'AIが回答を生成できませんでした（不適切な単語としてフィルターに引っかかった可能性があります）。' });
-        }
-
-        let analysisHtml = data.candidates[0].content.parts[0].text;
-        analysisHtml = analysisHtml.replace(/```html/g, '').replace(/```/g, '');
-
-        res.status(200).json({ html: analysisHtml });
+        res.status(200).json({ html });
     } catch (error) {
-        console.error("Backend Error:", error);
-        res.status(500).json({ error: 'サーバー内部で解析処理に失敗しました。時間をおいてやり直してください。' });
+        res.status(500).json({ error: '解析失敗' });
     }
 }
