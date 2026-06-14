@@ -3,119 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>臨床栄養学 AIアドバイザー (Gemini連携)</title>
+    <title>臨床栄養学 AIアドバイザー</title>
     <style>
-        :root {
-            --primary: #1565C0;
-            --secondary: #0D47A1;
-            --bg: #F5F7FA;
-            --text: #2C3E50;
-            --accent: #FF8F00;
-        }
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 700px;
-            width: 100%;
-            background: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-        }
-        h1 {
-            color: var(--secondary);
-            text-align: center;
-            font-size: 1.5rem;
-            border-bottom: 3px solid var(--primary);
-            padding-bottom: 12px;
-            margin-bottom: 25px;
-        }
-        .input-group {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        select, input[type="text"] {
-            padding: 12px 15px;
-            border: 1px solid #CFD8DC;
-            border-radius: 6px;
-            font-size: 1.05rem;
-            background: #FAFAFA;
-        }
-        input[type="text"] {
-            flex-grow: 1;
-        }
-        .btn-mic {
-            background-color: #D32F2F;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            transition: all 0.3s ease;
-        }
-        .btn-mic.recording {
-            background-color: #B71C1C;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(211, 47, 47, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
-        }
-        .btn-submit {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 14px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 1.1rem;
-            font-weight: bold;
-            letter-spacing: 1px;
-            margin-bottom: 25px;
-            transition: background-color 0.2s;
-        }
+        :root { --primary: #1565C0; --secondary: #0D47A1; --bg: #F5F7FA; --text: #2C3E50; --accent: #FF8F00; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; line-height: 1.6; }
+        .container { max-width: 700px; width: 100%; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+        h1 { color: var(--secondary); text-align: center; font-size: 1.5rem; border-bottom: 3px solid var(--primary); padding-bottom: 12px; margin-bottom: 25px; }
+        .input-group { display: flex; gap: 12px; margin-bottom: 20px; }
+        select, input[type="text"] { padding: 12px 15px; border: 1px solid #CFD8DC; border-radius: 6px; font-size: 1.05rem; background: #FAFAFA; }
+        input[type="text"] { flex-grow: 1; }
+        .btn-mic { background-color: #D32F2F; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; transition: all 0.3s ease; }
+        .btn-mic.recording { background-color: #B71C1C; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(211, 47, 47, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); } }
+        .btn-submit { background-color: var(--primary); color: white; border: none; padding: 14px 20px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; margin-bottom: 25px; transition: background-color 0.2s; }
         .btn-submit:hover { background-color: var(--secondary); }
         .btn-submit:disabled { background-color: #90A4AE; cursor: not-allowed; }
-        .section {
-            background: #FFFFFF;
-            border: 1px solid #ECEFF1;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-        }
-        .section h2 {
-            margin-top: 0;
-            font-size: 1.25rem;
-            color: var(--secondary);
-            border-bottom: 2px solid #E3F2FD;
-            padding-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .section { background: #FFFFFF; border: 1px solid #ECEFF1; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .section h2 { margin-top: 0; font-size: 1.25rem; color: var(--secondary); border-bottom: 2px solid #E3F2FD; padding-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🔬 臨床栄養学 AIアドバイザー (Gemini連携)</h1>
+    <h1>🔬 臨床栄養学 AIアドバイザー <span style="font-size:0.8rem; color:#666;">(安定版)</span></h1>
     
     <div class="input-group">
         <select id="mealType">
@@ -127,51 +37,3 @@
     </div>
     
     <div class="input-group">
-        <input type="text" id="foodInput" placeholder="どんな食事でも入力してください...">
-        <button id="micBtn" class="btn-mic" title="音声入力">🎤</button>
-    </div>
-    
-    <button id="submitBtn" class="btn-submit">AIに食事データを解析させる</button>
-
-    <div id="currentAnalysis" class="section" style="display: none;">
-        <h2>📝 AI 解析レポート</h2>
-        <div id="analysisContent"></div>
-    </div>
-
-    <div id="dailySummary" class="section">
-        <h2>📊 今日の食事ログ</h2>
-        <div id="summaryContent">記録がありません。</div>
-        <button id="clearBtn" style="margin-top:20px; background:#90A4AE; color:white; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-weight:bold;">履歴をリセット</button>
-    </div>
-</div>
-
-<script>
-    const micBtn = document.getElementById('micBtn');
-    const foodInput = document.getElementById('foodInput');
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ja-JP';
-        recognition.interimResults = false;
-        micBtn.addEventListener('click', () => { recognition.start(); micBtn.classList.add('recording'); });
-        recognition.onresult = (event) => { foodInput.value = event.results[0][0].transcript; micBtn.classList.remove('recording'); };
-        recognition.onspeechend = () => { recognition.stop(); micBtn.classList.remove('recording'); };
-        recognition.onerror = () => { micBtn.classList.remove('recording'); alert('音声認識エラー'); };
-    } else {
-        micBtn.style.display = 'none';
-    }
-
-    const submitBtn = document.getElementById('submitBtn');
-    const mealType = document.getElementById('mealType');
-    const currentAnalysis = document.getElementById('currentAnalysis');
-    const analysisContent = document.getElementById('analysisContent');
-    const summaryContent = document.getElementById('summaryContent');
-    const clearBtn = document.getElementById('clearBtn');
-
-    let history = JSON.parse(localStorage.getItem('nutritionHistoryAI')) || [];
-    updateSummary();
-
-    submitBtn.addEventListener('click', async () => {
-        const input = foodInput.value.trim();
-        if (!input) return;
