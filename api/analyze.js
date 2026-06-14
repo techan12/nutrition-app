@@ -11,7 +11,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: '入力がありません' });
     }
 
-    // AI管理栄養士への強力なプロンプト（指示書）
     const prompt = `あなたは最新の臨床栄養学と生化学に精通したプロフェッショナルな管理栄養士です。
 ユーザーが食べた以下の食事内容を分析し、HTML形式で出力してください。
 
@@ -37,7 +36,6 @@ export default async function handler(req, res) {
 </div>`;
 
     try {
-        // Gemini APIを叩く
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -47,16 +45,28 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
-        
-        // AIの回答テキストを抽出
+
+        // 🌟 強化ポイント1：Gemini APIからエラーが返ってきた場合のキャッチ
+        if (!response.ok || data.error) {
+            console.error("Gemini API Error:", data.error);
+            // 429エラー（リクエスト過多）の場合は分かりやすいメッセージにする
+            if (data.error && data.error.code === 429) {
+                return res.status(429).json({ error: 'AIの解析上限（1分間15回）に達しました。1分ほど待ってから再度お試しください。' });
+            }
+            return res.status(500).json({ error: `AI通信エラー: ${data.error?.message || 'APIの呼び出しで問題が発生しました'}` });
+        }
+
+        // 🌟 強化ポイント2：AIが回答の生成を拒否した場合（安全性フィルターなど）
+        if (!data.candidates || data.candidates.length === 0) {
+            return res.status(500).json({ error: 'AIが回答を生成できませんでした（不適切な単語としてフィルターに引っかかった可能性があります）。' });
+        }
+
         let analysisHtml = data.candidates[0].content.parts[0].text;
-        
-        // AIが勝手に ```html などを付けた場合のお掃除
         analysisHtml = analysisHtml.replace(/```html/g, '').replace(/```/g, '');
 
         res.status(200).json({ html: analysisHtml });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: '解析に失敗しました。' });
+        console.error("Backend Error:", error);
+        res.status(500).json({ error: 'サーバー内部で解析処理に失敗しました。時間をおいてやり直してください。' });
     }
 }
